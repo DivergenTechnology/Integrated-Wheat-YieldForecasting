@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
       cropType: z.cropType,
       areaHectares: z.areaHectares,
       soilType: z.soilType,
+      description: z.description,
       readings: z.readings.map((r) => ({
         id: r.id,
         zoneId: r.zoneId,

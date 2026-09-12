@@ -5,7 +5,7 @@ import { GROWTH_STAGES } from '@/lib/forecast-engine'
 
 export const dynamic = 'force-dynamic'
 
-const VALID_STAGES = GROWTH_STAGES
+const VALID_STAGES: string[] = GROWTH_STAGES
 
 /**
  * POST /api/readings — record a UAV survey reading for a zone.

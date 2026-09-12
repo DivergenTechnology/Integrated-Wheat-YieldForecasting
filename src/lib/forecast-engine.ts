@@ -94,6 +94,7 @@ export interface ZoneInput {
   cropType: string
   areaHectares: number
   soilType?: string | null
+  description?: string | null
   readings: ZoneReadingInput[]
 }
 

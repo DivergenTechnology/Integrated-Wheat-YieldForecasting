@@ -308,7 +308,12 @@ export function ZoneDiseaseDialog({
                 <TabsTrigger value="detection">Detection</TabsTrigger>
                 <TabsTrigger value="soil">Soil ({detail?.soilSamples?.length ?? 0})</TabsTrigger>
                 <TabsTrigger value="alerts">
-                  Alerts ({zoneAlerts.filter((a) => !a.acknowledged).length})
+                  {(() => {
+                    const unack = zoneAlerts.filter((a) => !a.acknowledged).length
+                    return unack > 0
+                      ? `Alerts (${unack} new · ${zoneAlerts.length})`
+                      : `Alerts (${zoneAlerts.length})`
+                  })()}
                 </TabsTrigger>
               </TabsList>
 

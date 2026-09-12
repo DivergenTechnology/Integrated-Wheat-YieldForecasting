@@ -23,16 +23,24 @@ export async function POST(
     }
 
     const body = await req.json()
+    const data = {
+      ph: num(body?.ph),
+      nitrogen: num(body?.nitrogen),
+      phosphorus: num(body?.phosphorus),
+      potassium: num(body?.potassium),
+      organicMatter: num(body?.organicMatter),
+      moisture: num(body?.moisture),
+      temperature: num(body?.temperature),
+    }
     const required: [string, number, number, number][] = [
-      ['ph', num(body?.ph), 0, 14],
-      ['nitrogen', num(body?.nitrogen), 0, 1000],
-      ['phosphorus', num(body?.phosphorus), 0, 500],
-      ['potassium', num(body?.potassium), 0, 1000],
-      ['organicMatter', num(body?.organicMatter), 0, 20],
-      ['moisture', num(body?.moisture), 0, 100],
-      ['temperature', num(body?.temperature), -20, 60],
+      ['ph', data.ph, 0, 14],
+      ['nitrogen', data.nitrogen, 0, 1000],
+      ['phosphorus', data.phosphorus, 0, 500],
+      ['potassium', data.potassium, 0, 1000],
+      ['organicMatter', data.organicMatter, 0, 20],
+      ['moisture', data.moisture, 0, 100],
+      ['temperature', data.temperature, -20, 60],
     ]
-    const data: Record<string, number> = {}
     for (const [name, value, min, max] of required) {
       if (!Number.isFinite(value) || value < min || value > max) {
         return NextResponse.json(
@@ -40,27 +48,26 @@ export async function POST(
           { status: 400 }
         )
       }
-      data[name] = value
     }
 
+    const extra = {
+      electricalCond: body?.electricalCond == null ? null : num(body.electricalCond),
+      cationExchangeCap: body?.cationExchangeCap == null ? null : num(body.cationExchangeCap),
+      bulkDensity: body?.bulkDensity == null ? null : num(body.bulkDensity),
+    }
     const optional: [string, number | null, number, number][] = [
-      ['electricalCond', body?.electricalCond == null ? null : num(body.electricalCond), 0, 20],
-      ['cationExchangeCap', body?.cationExchangeCap == null ? null : num(body.cationExchangeCap), 0, 100],
-      ['bulkDensity', body?.bulkDensity == null ? null : num(body.bulkDensity), 0.2, 3],
+      ['electricalCond', extra.electricalCond, 0, 20],
+      ['cationExchangeCap', extra.cationExchangeCap, 0, 100],
+      ['bulkDensity', extra.bulkDensity, 0.2, 3],
     ]
-    const extra: Record<string, number | null> = {}
     for (const [name, value, min, max] of optional) {
-      if (value == null) {
-        extra[name] = null
-        continue
-      }
+      if (value == null) continue
       if (!Number.isFinite(value) || value < min || value > max) {
         return NextResponse.json(
           { error: `${name} must be between ${min} and ${max}` },
           { status: 400 }
         )
       }
-      extra[name] = value
     }
 
     const sampledAt = body?.sampledAt ? new Date(body.sampledAt) : new Date()

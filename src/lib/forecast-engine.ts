@@ -19,7 +19,52 @@
  *  3. Ensemble — weighted average of both models (default).
  */
 
-export type GrowthStage = 'early' | 'mid' | 'late'
+/**
+ * Growth stage vocabulary. Crop-generic phases (early/mid/late) plus
+ * cereal-specific stages used by the disease engine and survey entry UI.
+ */
+export type GrowthStage =
+  | 'early'
+  | 'mid'
+  | 'late'
+  | 'seedling'
+  | 'tillering'
+  | 'jointing'
+  | 'booting'
+  | 'heading'
+  | 'flowering'
+  | 'grain_fill'
+  | 'ripening'
+
+/** Map any recorded stage onto the three yield-model phases */
+export const STAGE_PHASE: Record<GrowthStage, 'early' | 'mid' | 'late'> = {
+  early: 'early',
+  mid: 'mid',
+  late: 'late',
+  seedling: 'early',
+  tillering: 'early',
+  jointing: 'mid',
+  booting: 'mid',
+  heading: 'mid',
+  flowering: 'mid',
+  grain_fill: 'late',
+  ripening: 'late',
+}
+
+export const GROWTH_STAGES: GrowthStage[] = [
+  'early',
+  'mid',
+  'late',
+  'seedling',
+  'tillering',
+  'jointing',
+  'booting',
+  'heading',
+  'flowering',
+  'grain_fill',
+  'ripening',
+]
+
 export type ModelType = 'mvhs' | 'regression' | 'ensemble'
 export type CropType = 'maize' | 'wheat' | 'soybean' | 'rice' | 'cotton'
 
@@ -169,16 +214,24 @@ export const INDEX_LABELS: Record<string, string> = {
 /* Growth-stage weightings (NDVI saturates late → NDRE takes over)     */
 /* ------------------------------------------------------------------ */
 
-export const STAGE_WEIGHTS: Record<GrowthStage, Record<string, number>> = {
+export const STAGE_WEIGHTS: Record<'early' | 'mid' | 'late', Record<string, number>> = {
   early: { ndvi: 0.45, gndvi: 0.25, ndre: 0.10, lai: 0.10, canopy: 0.10 },
   mid: { ndvi: 0.35, gndvi: 0.20, ndre: 0.20, lai: 0.15, canopy: 0.10 },
   late: { ndvi: 0.20, gndvi: 0.15, ndre: 0.35, lai: 0.15, canopy: 0.15 },
 }
 
 export const STAGE_LABELS: Record<GrowthStage, string> = {
-  early: 'Early (VE–V6)',
-  mid: 'Mid (V6–VT / Flowering)',
-  late: 'Late (Grain Fill)',
+  early: 'Early vegetative',
+  mid: 'Mid-season / flowering',
+  late: 'Grain fill / ripening',
+  seedling: 'Seedling',
+  tillering: 'Tillering',
+  jointing: 'Jointing (stem extension)',
+  booting: 'Booting',
+  heading: 'Heading',
+  flowering: 'Flowering / anthesis',
+  grain_fill: 'Grain fill',
+  ripening: 'Ripening',
 }
 
 /* ------------------------------------------------------------------ */
@@ -215,8 +268,8 @@ function forecastMvhs(
   reading: ZoneReadingInput,
   crop: CropProfile
 ): { score: number; contributions: IndexContribution[]; stressFlags: string[] } {
-  const stage = reading.growthStage
-  const weights = STAGE_WEIGHTS[stage] ?? STAGE_WEIGHTS.mid
+  const phase = STAGE_PHASE[reading.growthStage] ?? 'mid'
+  const weights = STAGE_WEIGHTS[phase] ?? STAGE_WEIGHTS.mid
 
   const norms: Record<string, number> = {
     ndvi: normalize(reading.ndvi, INDEX_RANGES.ndvi),
@@ -241,9 +294,9 @@ function forecastMvhs(
   // Stress detection
   const stressFlags: string[] = []
   if (reading.ndvi < 0.45) stressFlags.push('Low canopy vigour (NDVI < 0.45)')
-  if (reading.ndre < 0.22 && stage !== 'early') stressFlags.push('Possible nitrogen deficiency (NDRE < 0.22)')
-  if (reading.canopyCover < 55 && stage !== 'early') stressFlags.push('Incomplete canopy closure (< 55%)')
-  if (reading.lai < 1.8 && stage === 'late') stressFlags.push('Low leaf area at grain fill (LAI < 1.8)')
+  if (reading.ndre < 0.22 && phase !== 'early') stressFlags.push('Possible nitrogen deficiency (NDRE < 0.22)')
+  if (reading.canopyCover < 55 && phase !== 'early') stressFlags.push('Incomplete canopy closure (< 55%)')
+  if (reading.lai < 1.8 && phase === 'late') stressFlags.push('Low leaf area at grain fill (LAI < 1.8)')
   // Index disagreement — when normalized indices diverge strongly
   const spread = Math.max(...Object.values(norms)) - Math.min(...Object.values(norms))
   if (spread > 0.45) stressFlags.push('High index disagreement — heterogeneous canopy')

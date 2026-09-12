@@ -8,15 +8,22 @@ datasource db {
 }
 
 model Zone {
-  id           String       @id @default(cuid())
+  id           String             @id @default(cuid())
   name         String
   cropType     String // maize | wheat | soybean | rice | cotton
   areaHectares Float
   soilType     String?
   description  String?
+  latitude     Float?
+  longitude    Float?
+  variety      String?
+  sowingDate   DateTime?
   readings     ZoneReading[]
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  soilSamples  SoilSample[]
+  detections   DiseaseDetection[]
+  alerts       DiseaseAlert[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 }
 
 model ZoneReading {
@@ -24,16 +31,88 @@ model ZoneReading {
   zoneId      String
   zone        Zone     @relation(fields: [zoneId], references: [id], onDelete: Cascade)
   surveyDate  DateTime
-  growthStage String // early | mid | late
+  growthStage String // early | mid | late | seedling | tillering | jointing | booting | heading | flowering | grain_fill | ripening
   ndvi        Float
   gndvi       Float
   ndre        Float
   lai         Float
   canopyCover Float // percentage 0-100
+  altitudeM   Float?
+  blue        Float? // reflectance 0-1
+  green       Float?
+  red         Float?
+  redEdge     Float?
+  nir         Float?
+  savi        Float?
+  evi         Float?
+  sipi        Float?
+  pri         Float?
+  canopyTempC Float?
   droneModel  String?
   sensorType  String?
   notes       String?
   createdAt   DateTime @default(now())
 
   @@index([zoneId, surveyDate])
+}
+
+model SoilSample {
+  id                String   @id @default(cuid())
+  zoneId            String
+  zone              Zone     @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  sampledAt         DateTime @default(now())
+  ph                Float
+  nitrogen          Float // mg/kg
+  phosphorus        Float // mg/kg
+  potassium         Float // mg/kg
+  organicMatter     Float // %
+  moisture          Float // %
+  temperature       Float // deg C
+  electricalCond    Float? // dS/m
+  cationExchangeCap Float? // cmol/kg
+  bulkDensity       Float? // g/cm3
+  notes             String?
+  createdAt         DateTime @default(now())
+
+  @@index([zoneId, sampledAt])
+}
+
+model DiseaseDetection {
+  id               String         @id @default(cuid())
+  zoneId           String
+  zone             Zone           @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  detectedAt       DateTime       @default(now())
+  disease          String // yellow_rust | brown_rust | powdery_mildew | fusarium_head_blight | septoria_tritici_blotch | tan_spot
+  riskScore        Float // fused risk 0-100
+  riskLevel        String // low | moderate | high | severe
+  soilContribution Float // 0-100
+  uavContribution  Float // 0-100
+  confidence       Float // 0-1
+  featureSnapshot  String? // JSON string of soil+uav features used
+  explanation      String?
+  recommendations  String?
+  alerts           DiseaseAlert[]
+  createdAt        DateTime       @default(now())
+
+  @@index([zoneId, detectedAt])
+  @@index([disease])
+}
+
+model DiseaseAlert {
+  id             String            @id @default(cuid())
+  zoneId         String
+  zone           Zone              @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  detectionId    String?
+  detection      DiseaseDetection? @relation(fields: [detectionId], references: [id], onDelete: Cascade)
+  severity       String // info | warning | critical
+  title          String
+  message        String
+  action         String?
+  acknowledged   Boolean           @default(false)
+  acknowledgedAt DateTime?
+  triggeredAt    DateTime          @default(now())
+  createdAt      DateTime          @default(now())
+
+  @@index([zoneId, triggeredAt])
+  @@index([acknowledged])
 }

@@ -1,0 +1,668 @@
+     1→'use client'
+     2→
+     3→import { useState } from 'react'
+     4→import {
+     5→  AlertTriangle,
+     6→  CalendarDays,
+     7→  Trash2,
+     8→  TrendingDown,
+     9→  TrendingUp,
+    10→  Plane,
+    11→} from 'lucide-react'
+    12→import {
+    13→  AlertDialog,
+    14→  AlertDialogAction,
+    15→  AlertDialogCancel,
+    16→  AlertDialogContent,
+    17→  AlertDialogDescription,
+    18→  AlertDialogFooter,
+    19→  AlertDialogHeader,
+    20→  AlertDialogTitle,
+    21→  AlertDialogTrigger,
+    22→} from '@/components/ui/alert-dialog'
+    23→import { Badge } from '@/components/ui/badge'
+    24→import { Button } from '@/components/ui/button'
+    25→import {
+    26→  Dialog,
+    27→  DialogContent,
+    28→  DialogDescription,
+    29→  DialogFooter,
+    30→  DialogHeader,
+    31→  DialogTitle,
+    32→} from '@/components/ui/dialog'
+    33→import { Input } from '@/components/ui/input'
+    34→import { Label } from '@/components/ui/label'
+    35→import { Progress } from '@/components/ui/progress'
+    36→import {
+    37→  Select,
+    38→  SelectContent,
+    39→  SelectItem,
+    40→  SelectTrigger,
+    41→  SelectValue,
+    42→} from '@/components/ui/select'
+    43→import { Separator } from '@/components/ui/separator'
+    44→import { Slider } from '@/components/ui/slider'
+    45→import {
+    46→  Table,
+    47→  TableBody,
+    48→  TableCell,
+    49→  TableHead,
+    50→  TableHeader,
+    51→  TableRow,
+    52→} from '@/components/ui/table'
+    53→import { Textarea } from '@/components/ui/textarea'
+    54→import { useToast } from '@/hooks/use-toast'
+    55→import {
+    56→  CROP_PROFILES,
+    57→  HEALTH_LABELS,
+    58→  HEALTH_COLORS,
+    59→  STAGE_LABELS,
+    60→  type GrowthStage,
+    61→  type ModelType,
+    62→  type ZoneForecast,
+    63→  type ZoneInput,
+    64→} from '@/lib/forecast-engine'
+    65→import { IndexRadarChart } from './charts'
+    66→
+    67→const STATUS_BADGE: Record<'low' | 'moderate' | 'optimal', string> = {
+    68→  low: 'bg-red-100 text-red-800 hover:bg-red-100',
+    69→  moderate: 'bg-amber-100 text-amber-800 hover:bg-amber-100',
+    70→  optimal: 'bg-green-100 text-green-800 hover:bg-green-100',
+    71→}
+    72→
+    73→/* ------------------------------------------------------------------ */
+    74→/* Zone detail dialog                                                  */
+    75→/* ------------------------------------------------------------------ */
+    76→
+    77→export function ZoneDetailDialog({
+    78→  zone,
+    79→  forecast,
+    80→  model,
+    81→  open,
+    82→  onOpenChange,
+    83→  onChanged,
+    84→}: {
+    85→  zone: ZoneInput
+    86→  forecast: ZoneForecast | null
+    87→  model: ModelType
+    88→  open: boolean
+    89→  onOpenChange: (v: boolean) => void
+    90→  onChanged: () => void
+    91→}) {
+    92→  const { toast } = useToast()
+    93→  const [deletingReading, setDeletingReading] = useState<string | null>(null)
+    94→
+    95→  const crop = CROP_PROFILES[zone.cropType as keyof typeof CROP_PROFILES] ?? CROP_PROFILES.maize
+    96→  const sortedReadings = [...zone.readings].sort(
+    97→    (a, b) => new Date(b.surveyDate).getTime() - new Date(a.surveyDate).getTime()
+    98→  )
+    99→
+   100→  async function deleteReading(id: string) {
+   101→    setDeletingReading(id)
+   102→    try {
+   103→      const res = await fetch(`/api/readings/${id}`, { method: 'DELETE' })
+   104→      if (!res.ok) throw new Error('Delete failed')
+   105→      toast({ title: 'Reading removed', description: 'The UAV survey was deleted and forecasts recomputed.' })
+   106→      onChanged()
+   107→    } catch {
+   108→      toast({ title: 'Error', description: 'Could not delete the reading.', variant: 'destructive' })
+   109→    } finally {
+   110→      setDeletingReading(null)
+   111→    }
+   112→  }
+   113→
+   114→  async function deleteZone() {
+   115→    try {
+   116→      const res = await fetch(`/api/zones/${zone.id}`, { method: 'DELETE' })
+   117→      if (!res.ok) throw new Error('Delete failed')
+   118→      toast({ title: 'Zone deleted', description: `${zone.name} and its surveys were removed.` })
+   119→      onOpenChange(false)
+   120→      onChanged()
+   121→    } catch {
+   122→      toast({ title: 'Error', description: 'Could not delete the zone.', variant: 'destructive' })
+   123→    }
+   124→  }
+   125→
+   126→  return (
+   127→    <Dialog open={open} onOpenChange={onOpenChange}>
+   128→      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+   129→        <DialogHeader>
+   130→          <DialogTitle className="flex items-center gap-2 text-xl">
+   131→            <span aria-hidden>{crop.emoji}</span> {zone.name}
+   132→            {forecast && (
+   133→              <Badge style={{ backgroundColor: HEALTH_COLORS[forecast.health], color: 'white' }}>
+   134→                {HEALTH_LABELS[forecast.health]}
+   135→              </Badge>
+   136→            )}
+   137→          </DialogTitle>
+   138→          <DialogDescription className="flex flex-wrap gap-x-4 gap-y-1">
+   139→            <span>{crop.label}</span>
+   140→            <span>{zone.areaHectares} ha</span>
+   141→            {zone.soilType && <span>{zone.soilType}</span>}
+   142→            {forecast && <span>{STAGE_LABELS[forecast.dominantStage]}</span>}
+   143→          </DialogDescription>
+   144→        </DialogHeader>
+   145→
+   146→        {zone.description && <p className="text-sm text-muted-foreground -mt-2">{zone.description}</p>}
+   147→
+   148→        <div
+   149→          className="min-h-0 flex-1 overflow-y-auto -mx-6 px-6"
+   150→          style={{ maxHeight: 'calc(90vh - 220px)', overscrollBehavior: 'contain' }}
+   151→        >
+   152→          <div className="pr-2 space-y-5 pb-2">
+   153→            {!forecast ? (
+   154→              <div className="rounded-lg border border-dashed border-stone-300 bg-stone-50 p-6 text-center">
+   155→                <Plane className="mx-auto h-8 w-8 text-stone-400" aria-hidden />
+   156→                <p className="mt-2 font-medium">No UAV surveys yet</p>
+   157→                <p className="text-sm text-muted-foreground">
+   158→                  Record a drone survey with vegetation index values to generate a yield forecast for this zone.
+   159→                </p>
+   160→              </div>
+   161→            ) : (
+   162→              <>
+   163→                {/* Forecast headline */}
+   164→                <div className="grid gap-4 sm:grid-cols-3">
+   165→                  <div className="rounded-xl border bg-gradient-to-br from-emerald-50 to-lime-50 p-4">
+   166→                    <p className="text-xs font-medium uppercase tracking-wide text-emerald-800">Forecast yield</p>
+   167→                    <p className="mt-1 text-3xl font-bold text-emerald-900">{forecast.yieldPerHectare.toFixed(2)}</p>
+   168→                    <p className="text-xs text-emerald-700">t/ha · band {forecast.confidenceBand.lower}–{forecast.confidenceBand.upper}</p>
+   169→                  </div>
+   170→                  <div className="rounded-xl border bg-stone-50 p-4">
+   171→                    <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Total production</p>
+   172→                    <p className="mt-1 text-3xl font-bold">{forecast.totalYieldTonnes.toFixed(1)}</p>
+   173→                    <p className="text-xs text-stone-500">tonnes over {zone.areaHectares} ha</p>
+   174→                  </div>
+   175→                  <div className="rounded-xl border bg-stone-50 p-4">
+   176→                    <p className="text-xs font-medium uppercase tracking-wide text-stone-500">vs attainable</p>
+   177→                    <p className="mt-1 text-3xl font-bold">{Math.round(forecast.yieldFraction * 100)}%</p>
+   178→                    <Progress value={forecast.yieldFraction * 100} className="mt-2 h-2" aria-label="Fraction of attainable yield" />
+   179→                  </div>
+   180→                </div>
+   181→
+   182→                <div className="flex flex-wrap items-center gap-3 text-sm">
+   183→                  <span className="font-medium">Confidence</span>
+   184→                  <Progress value={forecast.confidence * 100} className="h-2 w-40" aria-label="Forecast confidence" />
+   185→                  <span>{Math.round(forecast.confidence * 100)}%</span>
+   186→                  <Separator orientation="vertical" className="h-5" />
+   187→                  <span className="font-medium">Trend</span>
+   188→                  {forecast.trendDelta >= 0 ? (
+   189→                    <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+   190→                      <TrendingUp className="mr-1 h-3 w-3" aria-hidden /> +{forecast.trendDelta.toFixed(2)} t/ha
+   191→                    </Badge>
+   192→                  ) : (
+   193→                    <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
+   194→                      <TrendingDown className="mr-1 h-3 w-3" aria-hidden /> {forecast.trendDelta.toFixed(2)} t/ha
+   195→                    </Badge>
+   196→                  )}
+   197→                  <span className="text-muted-foreground">vs previous survey · {forecast.surveysUsed} surveys · model: {model.toUpperCase()}</span>
+   198→                </div>
+   199→
+   200→                {forecast.stressFlags.length > 0 && (
+   201→                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+   202→                    <p className="flex items-center gap-2 text-sm font-medium text-amber-900">
+   203→                      <AlertTriangle className="h-4 w-4" aria-hidden /> Stress indicators
+   204→                    </p>
+   205→                    <ul className="mt-1 list-inside list-disc text-sm text-amber-800">
+   206→                      {forecast.stressFlags.map((flag) => (
+   207→                        <li key={flag}>{flag}</li>
+   208→                      ))}
+   209→                    </ul>
+   210→                  </div>
+   211→                )}
+   212→
+   213→                {/* Index contributions */}
+   214→                <div>
+   215→                  <h4 className="mb-2 text-sm font-semibold">Index contribution breakdown (latest survey)</h4>
+   216→                  <div className="space-y-2">
+   217→                    {forecast.contributions.map((c) => (
+   218→                      <div key={c.index} className="flex items-center gap-3 text-sm">
+   219→                        <span className="w-24 font-medium">{c.label}</span>
+   220→                        <span className="w-14 tabular-nums text-stone-600">
+   221→                          {c.index === 'canopy' ? `${Math.round(c.value)}%` : c.value.toFixed(2)}
+   222→                        </span>
+   223→                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-stone-100">
+   224→                          <div
+   225→                            className="h-full rounded-full"
+   226→                            style={{
+   227→                              width: `${Math.min(100, (c.value / (c.index === 'canopy' ? 100 : c.index === 'lai' ? 6.5 : 1)) * 100)}%`,
+   228→                              backgroundColor: HEALTH_COLORS[forecast.health],
+   229→                            }}
+   230→                          />
+   231→                        </div>
+   232→                        <span className="w-20 text-right text-xs text-stone-500">weight {Math.round(c.weight * 100)}%</span>
+   233→                        <Badge className={`w-20 justify-center ${STATUS_BADGE[c.status]}`}>{c.status}</Badge>
+   234→                      </div>
+   235→                    ))}
+   236→                  </div>
+   237→                </div>
+   238→
+   239→                <div className="grid gap-4 sm:grid-cols-2">
+   240→                  <div className="rounded-xl border p-3">
+   241→                    <h4 className="mb-1 text-sm font-semibold">Index profile</h4>
+   242→                    <IndexRadarChart forecast={forecast} />
+   243→                  </div>
+   244→                  <div className="rounded-xl border p-4 text-sm">
+   245→                    <h4 className="mb-2 font-semibold">Model math (MVHS core)</h4>
+   246→                    <p className="text-muted-foreground">
+   247→                      Score = Σ(weight × normalized index) using {STAGE_LABELS[forecast.dominantStage]} weights.
+   248→                    </p>
+   249→                    <p className="mt-2 font-mono text-xs bg-stone-50 rounded p-2 leading-relaxed">
+   250→                      score = {forecast.vegetationScore.toFixed(3)}<br />
+   251→                      yield = potential × response(score)<br />
+   252→                      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= {forecast.potentialYield} × {forecast.yieldFraction.toFixed(3)}<br />
+   253→                      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;≈ {forecast.yieldPerHectare.toFixed(2)} t/ha
+   254→                    </p>
+   255→                    <p className="mt-2 text-muted-foreground">
+   256→                      Confidence reflects survey count, index agreement and recency.
+   257→                    </p>
+   258→                  </div>
+   259→                </div>
+   260→              </>
+   261→            )}
+   262→
+   263→            {/* Reading history */}
+   264→            <div>
+   265→              <h4 className="mb-2 text-sm font-semibold">UAV survey history</h4>
+   266→              <div className="rounded-lg border">
+   267→                <Table>
+   268→                  <TableHeader>
+   269→                    <TableRow>
+   270→                      <TableHead>Date</TableHead>
+   271→                      <TableHead>Stage</TableHead>
+   272→                      <TableHead className="text-right">NDVI</TableHead>
+   273→                      <TableHead className="text-right">GNDVI</TableHead>
+   274→                      <TableHead className="text-right">NDRE</TableHead>
+   275→                      <TableHead className="text-right">LAI</TableHead>
+   276→                      <TableHead className="text-right">Canopy</TableHead>
+   277→                      <TableHead className="w-10" />
+   278→                    </TableRow>
+   279→                  </TableHeader>
+   280→                  <TableBody>
+   281→                    {sortedReadings.length === 0 && (
+   282→                      <TableRow>
+   283→                        <TableCell colSpan={8} className="text-center text-sm text-muted-foreground">
+   284→                          No surveys recorded
+   285→                        </TableCell>
+   286→                      </TableRow>
+   287→                    )}
+   288→                    {sortedReadings.map((r) => (
+   289→                      <TableRow key={r.id}>
+   290→                        <TableCell className="whitespace-nowrap text-xs">
+   291→                          <CalendarDays className="mr-1 inline h-3 w-3 text-stone-400" aria-hidden />
+   292→                          {new Date(r.surveyDate).toISOString().slice(0, 10)}
+   293→                        </TableCell>
+   294→                        <TableCell className="text-xs capitalize">{r.growthStage}</TableCell>
+   295→                        <TableCell className="text-right tabular-nums">{r.ndvi.toFixed(2)}</TableCell>
+   296→                        <TableCell className="text-right tabular-nums">{r.gndvi.toFixed(2)}</TableCell>
+   297→                        <TableCell className="text-right tabular-nums">{r.ndre.toFixed(2)}</TableCell>
+   298→                        <TableCell className="text-right tabular-nums">{r.lai.toFixed(1)}</TableCell>
+   299→                        <TableCell className="text-right tabular-nums">{Math.round(r.canopyCover)}%</TableCell>
+   300→                        <TableCell>
+   301→                          <AlertDialog>
+   302→                            <AlertDialogTrigger asChild>
+   303→                              <Button
+   304→                                variant="ghost"
+   305→                                size="icon"
+   306→                                className="h-7 w-7 text-stone-400 hover:text-red-600"
+   307→                                aria-label={`Delete survey from ${new Date(r.surveyDate).toISOString().slice(0, 10)}`}
+   308→                              >
+   309→                                <Trash2 className="h-3.5 w-3.5" />
+   310→                              </Button>
+   311→                            </AlertDialogTrigger>
+   312→                            <AlertDialogContent>
+   313→                              <AlertDialogHeader>
+   314→                                <AlertDialogTitle>Delete this survey?</AlertDialogTitle>
+   315→                                <AlertDialogDescription>
+   316→                                  The forecast will be recalculated from the remaining surveys.
+   317→                                </AlertDialogDescription>
+   318→                              </AlertDialogHeader>
+   319→                              <AlertDialogFooter>
+   320→                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+   321→                                <AlertDialogAction
+   322→                                  className="bg-red-600 hover:bg-red-700"
+   323→                                  disabled={deletingReading === r.id}
+   324→                                  onClick={() => deleteReading(r.id)}
+   325→                                >
+   326→                                  Delete
+   327→                                </AlertDialogAction>
+   328→                              </AlertDialogFooter>
+   329→                            </AlertDialogContent>
+   330→                          </AlertDialog>
+   331→                        </TableCell>
+   332→                      </TableRow>
+   333→                    ))}
+   334→                  </TableBody>
+   335→                </Table>
+   336→              </div>
+   337→            </div>
+   338→          </div>
+   339→        </div>
+   340→
+   341→        <DialogFooter className="items-center gap-2 border-t pt-3">
+   342→          <AlertDialog>
+   343→            <AlertDialogTrigger asChild>
+   344→              <Button variant="outline" size="sm" className="text-red-600 hover:bg-red-50 hover:text-red-700">
+   345→                <Trash2 className="mr-1.5 h-4 w-4" /> Delete zone
+   346→              </Button>
+   347→            </AlertDialogTrigger>
+   348→            <AlertDialogContent>
+   349→              <AlertDialogHeader>
+   350→                <AlertDialogTitle>Delete {zone.name}?</AlertDialogTitle>
+   351→                <AlertDialogDescription>
+   352→                  This permanently removes the zone and all {zone.readings.length} UAV surveys. This action cannot be undone.
+   353→                </AlertDialogDescription>
+   354→              </AlertDialogHeader>
+   355→              <AlertDialogFooter>
+   356→                <AlertDialogCancel>Cancel</AlertDialogCancel>
+   357→                <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={deleteZone}>
+   358→                  Delete zone
+   359→                </AlertDialogAction>
+   360→              </AlertDialogFooter>
+   361→            </AlertDialogContent>
+   362→          </AlertDialog>
+   363→          <Button size="sm" onClick={() => onOpenChange(false)}>Close</Button>
+   364→        </DialogFooter>
+   365→      </DialogContent>
+   366→    </Dialog>
+   367→  )
+   368→}
+   369→
+   370→/* ------------------------------------------------------------------ */
+   371→/* Add UAV reading dialog                                              */
+   372→/* ------------------------------------------------------------------ */
+   373→
+   374→interface IndexFieldProps {
+   375→  label: string
+   376→  hint: string
+   377→  min: number
+   378→  max: number
+   379→  step: number
+   380→  value: number
+   381→  decimals: number
+   382→  onChange: (v: number) => void
+   383→  unit?: string
+   384→}
+   385→
+   386→function IndexField({ label, hint, min, max, step, value, decimals, onChange, unit }: IndexFieldProps) {
+   387→  return (
+   388→    <div className="space-y-1.5">
+   389→      <div className="flex items-center justify-between">
+   390→        <Label className="text-sm font-medium">{label}</Label>
+   391→        <div className="flex items-center gap-1.5">
+   392→          <Input
+   393→            type="number"
+   394→            min={min}
+   395→            max={max}
+   396→            step={step}
+   397→            value={value}
+   398→            onChange={(e) => {
+   399→              const v = Number(e.target.value)
+   400→              if (Number.isFinite(v)) onChange(v)
+   401→            }}
+   402→            className="h-8 w-24 text-right tabular-nums"
+   403→            aria-label={`${label} value`}
+   404→          />
+   405→          {unit && <span className="text-xs text-stone-500">{unit}</span>}
+   406→        </div>
+   407→      </div>
+   408→      <Slider
+   409→        min={min}
+   410→        max={max}
+   411→        step={step}
+   412→        value={[value]}
+   413→        onValueChange={(vals) => onChange(vals[0])}
+   414→        aria-label={`${label} slider`}
+   415→      />
+   416→      <p className="text-xs text-stone-500">{hint}</p>
+   417→    </div>
+   418→  )
+   419→}
+   420→
+   421→export function AddReadingDialog({
+   422→  zones,
+   423→  defaultZoneId,
+   424→  open,
+   425→  onOpenChange,
+   426→  onAdded,
+   427→}: {
+   428→  zones: { id: string; name: string }[]
+   429→  defaultZoneId?: string
+   430→  open: boolean
+   431→  onOpenChange: (v: boolean) => void
+   432→  onAdded: () => void
+   433→}) {
+   434→  const { toast } = useToast()
+   435→  const [zoneId, setZoneId] = useState(defaultZoneId ?? zones[0]?.id ?? '')
+   436→  const [surveyDate, setSurveyDate] = useState(new Date().toISOString().slice(0, 10))
+   437→  const [growthStage, setGrowthStage] = useState<GrowthStage>('mid')
+   438→  const [ndvi, setNdvi] = useState(0.75)
+   439→  const [gndvi, setGndvi] = useState(0.68)
+   440→  const [ndre, setNdre] = useState(0.32)
+   441→  const [lai, setLai] = useState(3.5)
+   442→  const [canopyCover, setCanopyCover] = useState(75)
+   443→  const [droneModel, setDroneModel] = useState('DJI Mavic 3M')
+   444→  const [notes, setNotes] = useState('')
+   445→  const [saving, setSaving] = useState(false)
+   446→
+   447→  function resetDefaults() {
+   448→    setSurveyDate(new Date().toISOString().slice(0, 10))
+   449→    setGrowthStage('mid')
+   450→    setNdvi(0.75)
+   451→    setGndvi(0.68)
+   452→    setNdre(0.32)
+   453→    setLai(3.5)
+   454→    setCanopyCover(75)
+   455→    setNotes('')
+   456→  }
+   457→
+   458→  async function submit() {
+   459→    if (!zoneId) {
+   460→      toast({ title: 'Select a zone', description: 'Choose which farming zone this survey belongs to.', variant: 'destructive' })
+   461→      return
+   462→    }
+   463→    setSaving(true)
+   464→    try {
+   465→      const res = await fetch('/api/readings', {
+   466→        method: 'POST',
+   467→        headers: { 'Content-Type': 'application/json' },
+   468→        body: JSON.stringify({ zoneId, surveyDate, growthStage, ndvi, gndvi, ndre, lai, canopyCover, droneModel, notes }),
+   469→      })
+   470→      const json = await res.json()
+   471→      if (!res.ok) throw new Error(json.error || 'Failed to save survey')
+   472→      toast({ title: 'UAV survey recorded', description: 'Yield forecasts have been recomputed for the zone.' })
+   473→      resetDefaults()
+   474→      onOpenChange(false)
+   475→      onAdded()
+   476→    } catch (e) {
+   477→      toast({
+   478→        title: 'Error',
+   479→        description: e instanceof Error ? e.message : 'Failed to save survey',
+   480→        variant: 'destructive',
+   481→      })
+   482→    } finally {
+   483→      setSaving(false)
+   484→    }
+   485→  }
+   486→
+   487→  return (
+   488→    <Dialog open={open} onOpenChange={onOpenChange}>
+   489→      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+   490→        <DialogHeader>
+   491→          <DialogTitle className="flex items-center gap-2">
+   492→            <Plane className="h-5 w-5 text-emerald-700" aria-hidden /> Record UAV survey
+   493→          </DialogTitle>
+   494→          <DialogDescription>
+   495→            Enter vegetation index values extracted from the drone multispectral flight.
+   496→          </DialogDescription>
+   497→        </DialogHeader>
+   498→
+   499→        <div className="grid gap-4 py-1">
+   500→          <div className="grid gap-4 sm:grid-cols-3">
+   501→            <div className="space-y-1.5 sm:col-span-2">
+   502→              <Label>Farming zone</Label>
+   503→              <Select value={zoneId} onValueChange={setZoneId}>
+   504→                <SelectTrigger aria-label="Farming zone">
+   505→                  <SelectValue placeholder="Select zone" />
+   506→                </SelectTrigger>
+   507→                <SelectContent>
+   508→                  {zones.map((z) => (
+   509→                    <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>
+   510→                  ))}
+   511→                </SelectContent>
+   512→              </Select>
+   513→            </div>
+   514→            <div className="space-y-1.5">
+   515→              <Label>Survey date</Label>
+   516→              <Input type="date" value={surveyDate} onChange={(e) => setSurveyDate(e.target.value)} aria-label="Survey date" />
+   517→            </div>
+   518→          </div>
+   519→
+   520→          <div className="space-y-1.5">
+   521→            <Label>Growth stage</Label>
+   522→            <Select value={growthStage} onValueChange={(v) => setGrowthStage(v as GrowthStage)}>
+   523→              <SelectTrigger aria-label="Growth stage">
+   524→                <SelectValue />
+   525→              </SelectTrigger>
+   526→              <SelectContent>
+   527→                <SelectItem value="early">Early (VE–V6)</SelectItem>
+   528→                <SelectItem value="mid">Mid (V6–VT / Flowering)</SelectItem>
+   529→                <SelectItem value="late">Late (Grain Fill)</SelectItem>
+   530→              </SelectContent>
+   531→            </Select>
+   532→            <p className="text-xs text-stone-500">Stage controls the index weighting — NDRE gains weight late season.</p>
+   533→          </div>
+   534→
+   535→          <Separator />
+   536→
+   537→          <IndexField label="NDVI" hint="Canopy vigour — healthy crops typically 0.6–0.9" min={0} max={1} step={0.01} value={ndvi} decimals={2} onChange={setNdvi} />
+   538→          <IndexField label="GNDVI" hint="Chlorophyll concentration — typically 0.5–0.85" min={0} max={1} step={0.01} value={gndvi} decimals={2} onChange={setGndvi} />
+   539→          <IndexField label="NDRE" hint="Late-season nitrogen status — typically 0.2–0.5" min={0} max={1} step={0.01} value={ndre} decimals={2} onChange={setNdre} />
+   540→          <IndexField label="LAI" hint="Leaf Area Index — dense canopy reaches 4–6" min={0} max={8} step={0.1} value={lai} decimals={1} onChange={setLai} unit="m²/m²" />
+   541→          <IndexField label="Canopy cover" hint="Ground shading fraction from orthomosaic classification" min={0} max={100} step={1} value={canopyCover} decimals={0} onChange={setCanopyCover} unit="%" />
+   542→
+   543→          <div className="space-y-1.5">
+   544→            <Label>Drone / notes</Label>
+   545→            <Input value={droneModel} onChange={(e) => setDroneModel(e.target.value)} placeholder="Drone model" aria-label="Drone model" />
+   546→            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Flight notes (optional)" rows={2} aria-label="Flight notes" />
+   547→          </div>
+   548→        </div>
+   549→
+   550→        <DialogFooter>
+   551→          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+   552→          <Button onClick={submit} disabled={saving} className="bg-emerald-700 hover:bg-emerald-800">
+   553→            {saving ? 'Saving…' : 'Save survey'}
+   554→          </Button>
+   555→        </DialogFooter>
+   556→      </DialogContent>
+   557→    </Dialog>
+   558→  )
+   559→}
+   560→
+   561→/* ------------------------------------------------------------------ */
+   562→/* Add zone dialog                                                     */
+   563→/* ------------------------------------------------------------------ */
+   564→
+   565→export function AddZoneDialog({
+   566→  open,
+   567→  onOpenChange,
+   568→  onAdded,
+   569→}: {
+   570→  open: boolean
+   571→  onOpenChange: (v: boolean) => void
+   572→  onAdded: () => void
+   573→}) {
+   574→  const { toast } = useToast()
+   575→  const [name, setName] = useState('')
+   576→  const [cropType, setCropType] = useState('maize')
+   577→  const [area, setArea] = useState('10')
+   578→  const [soilType, setSoilType] = useState('')
+   579→  const [description, setDescription] = useState('')
+   580→  const [saving, setSaving] = useState(false)
+   581→
+   582→  async function submit() {
+   583→    if (!name.trim()) {
+   584→      toast({ title: 'Name required', description: 'Give the farming zone a name.', variant: 'destructive' })
+   585→      return
+   586→    }
+   587→    const areaNum = Number(area)
+   588→    if (!Number.isFinite(areaNum) || areaNum <= 0) {
+   589→      toast({ title: 'Invalid area', description: 'Area must be a positive number of hectares.', variant: 'destructive' })
+   590→      return
+   591→    }
+   592→    setSaving(true)
+   593→    try {
+   594→      const res = await fetch('/api/zones', {
+   595→        method: 'POST',
+   596→        headers: { 'Content-Type': 'application/json' },
+   597→        body: JSON.stringify({ name, cropType, areaHectares: areaNum, soilType, description }),
+   598→      })
+   599→      const json = await res.json()
+   600→      if (!res.ok) throw new Error(json.error || 'Failed to create zone')
+   601→      toast({ title: 'Zone created', description: `${name} is ready — record a UAV survey to forecast yield.` })
+   602→      setName('')
+   603→      setSoilType('')
+   604→      setDescription('')
+   605→      onOpenChange(false)
+   606→      onAdded()
+   607→    } catch (e) {
+   608→      toast({
+   609→        title: 'Error',
+   610→        description: e instanceof Error ? e.message : 'Failed to create zone',
+   611→        variant: 'destructive',
+   612→      })
+   613→    } finally {
+   614→      setSaving(false)
+   615→    }
+   616→  }
+   617→
+   618→  return (
+   619→    <Dialog open={open} onOpenChange={onOpenChange}>
+   620→      <DialogContent className="max-w-md">
+   621→        <DialogHeader>
+   622→          <DialogTitle>Add farming zone</DialogTitle>
+   623→          <DialogDescription>Register a new zone, then record UAV surveys to forecast its yield.</DialogDescription>
+   624→        </DialogHeader>
+   625→        <div className="grid gap-4 py-1">
+   626→          <div className="space-y-1.5">
+   627→            <Label htmlFor="zone-name">Zone name</Label>
+   628→            <Input id="zone-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. North Block C" />
+   629→          </div>
+   630→          <div className="grid grid-cols-2 gap-4">
+   631→            <div className="space-y-1.5">
+   632→              <Label>Crop</Label>
+   633→              <Select value={cropType} onValueChange={setCropType}>
+   634→                <SelectTrigger aria-label="Crop type">
+   635→                  <SelectValue />
+   636→                </SelectTrigger>
+   637→                <SelectContent>
+   638→                  {Object.entries(CROP_PROFILES).map(([key, p]) => (
+   639→                    <SelectItem key={key} value={key}>{p.emoji} {p.label}</SelectItem>
+   640→                  ))}
+   641→                </SelectContent>
+   642→              </Select>
+   643→            </div>
+   644→            <div className="space-y-1.5">
+   645→              <Label htmlFor="zone-area">Area (ha)</Label>
+   646→              <Input id="zone-area" type="number" min="0.1" step="0.1" value={area} onChange={(e) => setArea(e.target.value)} />
+   647→            </div>
+   648→          </div>
+   649→          <div className="space-y-1.5">
+   650→            <Label htmlFor="zone-soil">Soil type</Label>
+   651→            <Input id="zone-soil" value={soilType} onChange={(e) => setSoilType(e.target.value)} placeholder="e.g. Sandy loam" />
+   652→          </div>
+   653→          <div className="space-y-1.5">
+   654→            <Label htmlFor="zone-desc">Description</Label>
+   655→            <Textarea id="zone-desc" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Irrigation, fertility history…" />
+   656→          </div>
+   657→        </div>
+   658→        <DialogFooter>
+   659→          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+   660→          <Button onClick={submit} disabled={saving} className="bg-emerald-700 hover:bg-emerald-800">
+   661→            {saving ? 'Creating…' : 'Create zone'}
+   662→          </Button>
+   663→        </DialogFooter>
+   664→      </DialogContent>
+   665→    </Dialog>
+   666→  )
+   667→}
+   668→

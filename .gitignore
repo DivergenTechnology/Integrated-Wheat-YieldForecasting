@@ -58,3 +58,5 @@ db/*.db
 upload/
 download/
 worklog.md
+tool-results/
+worklog.md

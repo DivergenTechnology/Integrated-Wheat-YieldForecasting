@@ -3,11 +3,9 @@
  * soil samples, and runs the disease fusion engine to populate detections + alerts.
  * Run: bun scripts/seed.ts
  */
-import { PrismaClient } from '@prisma/client'
+import { db as prisma } from '../src/lib/db'
 import { deriveIndices } from '../src/lib/disease-engine'
 import { GROWTH_STAGES, type GrowthStage } from '../src/lib/forecast-engine'
-
-const prisma = new PrismaClient()
 
 type Stage = GrowthStage
 

@@ -6,7 +6,7 @@
     "postinstall": "prisma generate",
     "predev": "mkdir -p db && (prisma db push --skip-generate || true) && (bun scripts/seed.ts || true)",
     "dev": "(ss -ltnpH 'sport = :3000' 2>/dev/null | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u | xargs -r kill -9) 2>/dev/null; pkill -f 'next[-]server' 2>/dev/null; sleep 1; next dev -p 3000 2>&1 | tee dev.log",
-    "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
+    "build": "next build && node scripts/fix-standalone.mjs",
     "prestart": "mkdir -p db && (prisma db push --skip-generate || true) && (bun scripts/seed.ts || true)",
     "start": "(ss -ltnpH 'sport = :3000' 2>/dev/null | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u | xargs -r kill -9) 2>/dev/null; pkill -f 'next[-]server' 2>/dev/null; pkill -f 'next[ ]dev' 2>/dev/null; sleep 1; NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/zones/[id]?disease=1 — zone detail.
- * With ?disease=1 returns soil-sample history, detection history and alerts
- * for the disease monitoring dialog.
+ * With ?disease=1 also returns soil-sample history, detection history and
+ * alerts for the disease monitoring dialog.
  */
 export async function GET(
   req: NextRequest,
@@ -14,21 +15,18 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const zone = await db.zone.findUnique({
-      where: { id },
-      include: {
-        readings: { orderBy: { surveyDate: 'asc' } },
-        soilSamples: req.nextUrl.searchParams.get('disease')
-          ? { orderBy: { sampledAt: 'asc' } }
-          : false,
-        detections: req.nextUrl.searchParams.get('disease')
-          ? { orderBy: { detectedAt: 'desc' }, take: 30 }
-          : false,
-        alerts: req.nextUrl.searchParams.get('disease')
-          ? { orderBy: { triggeredAt: 'desc' }, take: 30 }
-          : false,
-      },
-    })
+    const withDisease = req.nextUrl.searchParams.get('disease') === '1'
+
+    const include: Prisma.ZoneInclude = {
+      readings: { orderBy: { surveyDate: 'asc' } },
+    }
+    if (withDisease) {
+      include.soilSamples = { orderBy: { sampledAt: 'asc' } }
+      include.detections = { orderBy: { detectedAt: 'desc' }, take: 30 }
+      include.alerts = { orderBy: { triggeredAt: 'desc' }, take: 30 }
+    }
+
+    const zone = await db.zone.findUnique({ where: { id }, include })
     if (!zone) {
       return NextResponse.json({ error: 'Zone not found' }, { status: 404 })
     }

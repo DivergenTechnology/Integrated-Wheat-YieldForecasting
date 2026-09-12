@@ -1,5 +1,5 @@
-import YieldForecastDashboard from '@/components/yield-forecast/dashboard'
+import PlatformShell from '@/components/platform-shell'
 
 export default function Home() {
-  return <YieldForecastDashboard />
+  return <PlatformShell />
 }

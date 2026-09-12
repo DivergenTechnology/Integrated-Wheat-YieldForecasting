@@ -54,6 +54,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import {
   CROP_PROFILES,
+  GROWTH_STAGES,
   HEALTH_LABELS,
   HEALTH_COLORS,
   STAGE_LABELS,
@@ -443,6 +444,8 @@ export function AddReadingDialog({
   const [droneModel, setDroneModel] = useState('DJI Mavic 3M')
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
+  const [showBands, setShowBands] = useState(false)
+  const [bands, setBands] = useState({ blue: '', green: '', red: '', redEdge: '', nir: '', canopyTempC: '' })
 
   function resetDefaults() {
     setSurveyDate(new Date().toISOString().slice(0, 10))
@@ -462,10 +465,29 @@ export function AddReadingDialog({
     }
     setSaving(true)
     try {
+      const bandPayload = showBands
+        ? Object.fromEntries(
+            Object.entries(bands)
+              .filter(([, v]) => v !== '' && Number.isFinite(Number(v)))
+              .map(([k, v]) => [k, Number(v)])
+          )
+        : {}
       const res = await fetch('/api/readings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ zoneId, surveyDate, growthStage, ndvi, gndvi, ndre, lai, canopyCover, droneModel, notes }),
+        body: JSON.stringify({
+          zoneId,
+          surveyDate,
+          growthStage,
+          ndvi,
+          gndvi,
+          ndre,
+          lai,
+          canopyCover,
+          droneModel,
+          notes,
+          ...bandPayload,
+        }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed to save survey')
@@ -524,12 +546,14 @@ export function AddReadingDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="early">Early (VE–V6)</SelectItem>
-                <SelectItem value="mid">Mid (V6–VT / Flowering)</SelectItem>
-                <SelectItem value="late">Late (Grain Fill)</SelectItem>
+                {GROWTH_STAGES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {STAGE_LABELS[s]}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-stone-500">Stage controls the index weighting — NDRE gains weight late season.</p>
+            <p className="text-xs text-stone-500">Stage controls the yield-model index weighting — NDRE gains weight in later phases.</p>
           </div>
 
           <Separator />
@@ -539,6 +563,51 @@ export function AddReadingDialog({
           <IndexField label="NDRE" hint="Late-season nitrogen status — typically 0.2–0.5" min={0} max={1} step={0.01} value={ndre} decimals={2} onChange={setNdre} />
           <IndexField label="LAI" hint="Leaf Area Index — dense canopy reaches 4–6" min={0} max={8} step={0.1} value={lai} decimals={1} onChange={setLai} unit="m²/m²" />
           <IndexField label="Canopy cover" hint="Ground shading fraction from orthomosaic classification" min={0} max={100} step={1} value={canopyCover} decimals={0} onChange={setCanopyCover} unit="%" />
+
+          <div className="rounded-lg border border-dashed">
+            <button
+              type="button"
+              onClick={() => setShowBands((v) => !v)}
+              className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-medium"
+              aria-expanded={showBands}
+            >
+              <span>Multispectral raw bands (optional)</span>
+              <span className="text-xs text-stone-500">{showBands ? 'hide' : 'show'}</span>
+            </button>
+            {showBands && (
+              <div className="space-y-3 border-t px-3 py-3">
+                <p className="text-xs text-stone-500">
+                  Reflectance 0–1 per band. Used by the disease fusion engine; derived indices (SAVI, EVI, SIPI, PRI) are computed automatically.
+                </p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {(
+                    [
+                      ['blue', 'Blue'],
+                      ['green', 'Green'],
+                      ['red', 'Red'],
+                      ['redEdge', 'Red edge'],
+                      ['nir', 'NIR'],
+                      ['canopyTempC', 'Canopy temp (°C)'],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <div key={key} className="space-y-1">
+                      <Label className="text-xs text-stone-600">{label}</Label>
+                      <Input
+                        type="number"
+                        step="0.001"
+                        min={key === 'canopyTempC' ? -20 : 0}
+                        max={key === 'canopyTempC' ? 70 : 1}
+                        value={bands[key]}
+                        onChange={(e) => setBands((b) => ({ ...b, [key]: e.target.value }))}
+                        aria-label={label}
+                        placeholder={key === 'canopyTempC' ? 'e.g. 24' : '0–1'}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="space-y-1.5">
             <Label>Drone / notes</Label>

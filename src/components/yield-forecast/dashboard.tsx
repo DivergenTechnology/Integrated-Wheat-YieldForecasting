@@ -13,7 +13,6 @@ import {
   Sprout,
   TrendingDown,
   TrendingUp,
-  Wheat,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -207,67 +206,44 @@ export default function YieldForecastDashboard() {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="min-h-screen bg-[#f5f7f2]">
-        {/* Header */}
-        <header className="border-b bg-white/80 backdrop-blur sticky top-0 z-20">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-700 text-white">
-              <Sprout className="h-5 w-5" aria-hidden />
-            </div>
-            <div className="mr-auto">
-              <h1 className="text-lg font-bold leading-tight">UAV Yield Forecast</h1>
-              <p className="text-xs text-stone-500">Precision farming · drone-index-driven yield estimation per zone</p>
-            </div>
+      <div className="space-y-6">
+        {/* Toolbar */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={model} onValueChange={(v) => setModel(v as ModelType)}>
+            <SelectTrigger className="w-[240px]" aria-label="Forecast model">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(MODEL_INFO) as ModelType[]).map((m) => (
+                <SelectItem key={m} value={m}>
+                  {MODEL_INFO[m].label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="hidden md:flex h-9 items-center gap-2 rounded-lg border bg-stone-50 px-3 text-xs text-stone-600">
-                  <Wheat className="h-3.5 w-3.5" aria-hidden />
-                  {data ? `${data.zones.length} zones · ${data.zones.reduce((a, z) => a + z.areaHectares, 0).toFixed(1)} ha` : '—'}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>Registered farming area covered by UAV surveys</TooltipContent>
-            </Tooltip>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleRefreshWithToast}
+            aria-label="Refresh forecasts"
+            className="shrink-0"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" onClick={() => openAddReading()} className="shrink-0">
+            <Plane className="mr-1.5 h-4 w-4" aria-hidden /> Record survey
+          </Button>
+          <Button onClick={() => setAddZoneOpen(true)} className="shrink-0 bg-emerald-700 hover:bg-emerald-800">
+            <Plus className="mr-1.5 h-4 w-4" aria-hidden /> Add zone
+          </Button>
+          <p className="ml-auto hidden max-w-md items-center gap-1 text-xs text-stone-500 md:flex">
+            <Info className="h-3 w-3 shrink-0" aria-hidden />
+            <span className="font-medium">{MODEL_INFO[model].label}:</span> {MODEL_INFO[model].description}
+          </p>
+        </div>
 
-            <Select value={model} onValueChange={(v) => setModel(v as ModelType)}>
-              <SelectTrigger className="w-[240px]" aria-label="Forecast model">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(MODEL_INFO) as ModelType[]).map((m) => (
-                  <SelectItem key={m} value={m}>
-                    {MODEL_INFO[m].label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleRefreshWithToast}
-              aria-label="Refresh forecasts"
-              className="shrink-0"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" onClick={() => openAddReading()} className="shrink-0">
-              <Plane className="mr-1.5 h-4 w-4" aria-hidden /> Record survey
-            </Button>
-            <Button onClick={() => setAddZoneOpen(true)} className="shrink-0 bg-emerald-700 hover:bg-emerald-800">
-              <Plus className="mr-1.5 h-4 w-4" aria-hidden /> Add zone
-            </Button>
-          </div>
-          <div className="border-t bg-emerald-50/60">
-            <p className="mx-auto max-w-7xl px-4 py-1.5 text-xs text-emerald-900 sm:px-6">
-              <Info className="mr-1 inline h-3 w-3" aria-hidden />
-              <span className="font-medium">{MODEL_INFO[model].label}:</span> {MODEL_INFO[model].description}
-            </p>
-          </div>
-        </header>
-
-        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-          {error && (
+        {error && (
             <Card className="mb-6 border-red-200 bg-red-50">
               <CardContent className="flex items-center gap-3 p-4">
                 <CircleAlert className="h-5 w-5 text-red-600" aria-hidden />
@@ -383,22 +359,6 @@ export default function YieldForecastDashboard() {
               </Card>
             </section>
           </div>
-        </main>
-
-        {/* Sticky footer */}
-        <footer className="mt-auto border-t bg-white">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-3 text-xs text-stone-500 sm:px-6">
-            <p>
-              UAV Yield Forecast · vegetation-index models for zone-level yield estimation ·
-              <span className="ml-1 font-medium text-stone-600">{MODEL_INFO[model].label}</span>
-            </p>
-            <p>
-              {data
-                ? `${data.zones.length} zones · ${data.zones.reduce((a, z) => a + z.readingCount, 0)} UAV surveys processed`
-                : 'loading…'}
-            </p>
-          </div>
-        </footer>
 
         {/* Dialogs */}
         {detailZone && (

@@ -11,7 +11,7 @@
  * flat layout. This script flattens the nested output and copies the
  * static assets, so `bun .next/standalone/server.js` works everywhere.
  */
-import { cpSync, existsSync, readdirSync, rmSync } from 'node:fs'
+import { cpSync, existsSync, readdirSync, readlinkSync, rmSync, symlinkSync, unlinkSync } from 'node:fs'
 import path from 'node:path'
 
 const root = process.cwd()
@@ -55,12 +55,38 @@ function readdirNames(dir) {
     .map((e) => e.name)
 }
 
+/** Rewrite absolute symlinks under `dir` that point into `oldPrefix` so they
+ *  point into the flattened standalone root instead. */
+function repairSymlinks(dir, oldPrefix) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name)
+    if (entry.isSymbolicLink()) {
+      const target = readlinkSync(full)
+      if (target === oldPrefix || target.startsWith(oldPrefix + path.sep)) {
+        const newTarget = path.join(standalone, path.relative(oldPrefix, target))
+        try {
+          unlinkSync(full)
+          symlinkSync(newTarget, full)
+        } catch (err) {
+          console.warn(`[fix-standalone] could not repair symlink ${full}: ${err?.message}`)
+        }
+      }
+    } else if (entry.isDirectory()) {
+      repairSymlinks(full, oldPrefix)
+    }
+  }
+}
+
 const nested = findNestedProjectDir(standalone)
 
 if (nested) {
   console.log(`[fix-standalone] flattening nested standalone output: ${path.relative(root, nested)}`)
   // Copy the nested project dir contents up to .next/standalone/ (merging).
   cpSync(nested, standalone, { recursive: true, force: true })
+  // Next writes some traced externals as ABSOLUTE symlinks pointing into the
+  // nested dir (e.g. .next/node_modules/@prisma/client-<hash>). Re-target
+  // those links into the flattened root before removing the nested dir.
+  repairSymlinks(standalone, nested)
   rmSync(nested, { recursive: true, force: true })
 } else {
   console.log('[fix-standalone] standalone output already flat')

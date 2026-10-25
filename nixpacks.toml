@@ -1,0 +1,24 @@
+# nixpacks.toml — Railway / Render / fly.io style deployment config
+# https://nixpacks.com/docs/configuration
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "bun"]
+aptPkgs = []
+
+[phases.install]
+# Try bun first (faster, has lockfile); fall back to npm if bun unavailable
+cmds = [
+  "bun install --frozen-lockfile || npm install --legacy-peer-deps"
+]
+
+[phases.build]
+cmds = ["bun run build || npm run build"]
+
+[start]
+# Start the production Next.js server
+cmd = "bun run start || npm start"
+
+[variables]
+NODE_ENV = "production"
+PORT = "3000"
+HOSTNAME = "0.0.0.0"

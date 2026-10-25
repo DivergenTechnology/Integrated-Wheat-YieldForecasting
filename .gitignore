@@ -67,9 +67,3 @@ prisma/prod.db
 agent-ctx/
 worklog.md/db/
 
-# SQLite database files
-/db/
-*.db
-
-# Runtime PID file (don't commit)
-.zscripts/dev.pid

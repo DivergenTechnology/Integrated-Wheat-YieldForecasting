@@ -12,6 +12,46 @@ This repository hosts the dashboard prototype for the **Irrigated Wheat Crop Yie
 
 ---
 
+## 🚀 Deploy to Vercel (Recommended)
+
+This project is configured for one-click deployment on Vercel — the natural deployment target for Next.js apps.
+
+### Quick Deploy (3 minutes)
+
+1. **Go to Vercel**: https://vercel.com (sign in with your GitHub account)
+2. **New Project**: Click "Add New..." → "Project"
+3. **Import Repository**: Select `DivergenTechnology/Integrated-Wheat-YieldForecasting` from the GitHub list
+4. **Configure** (Vercel auto-detects Next.js, but verify these settings):
+   - **Framework Preset**: Next.js
+   - **Build Command**: `npm run build` (auto-detected from `vercel.json`)
+   - **Install Command**: `npm install --legacy-peer-deps` (auto-detected from `vercel.json`)
+   - **Output Directory**: `.next` (auto-detected)
+   - **Node.js Version**: 20.x (default)
+5. **Deploy**: Click "Deploy" — Vercel will:
+   - Run `npm install --legacy-peer-deps`
+   - Run `npm run build` (`next build`)
+   - Deploy the production build to a global CDN
+6. **Get your URL**: Vercel assigns a public URL like `https://integrated-wheat-yield-forecasting-<random>.vercel.app`
+
+### Why Vercel?
+
+- ✅ **Auto-rebuilds on every GitHub push** — no manual deploy needed
+- ✅ **Production-grade CDN** — global edge network, sub-100ms TTFB
+- ✅ **Free tier** covers this dashboard's traffic indefinitely
+- ✅ **First-class Next.js support** — Vercel builds Next.js itself
+- ✅ **No dev server management** — eliminates the "port 3000 conflict" issue we hit on other platforms
+- ✅ **Real public URL** — shareable with stakeholders, partner research institutes, the Ministry of Agriculture
+
+### Post-Deploy Setup (Optional)
+
+After the first deploy succeeds, in the Vercel dashboard you can:
+- **Connect a custom domain** (e.g., `iwcyss.ethiopian-agriculture.gov.et`) — Settings → Domains
+- **Add environment variables** (when you wire real Firebase / PostGIS) — Settings → Environment Variables
+- **Set up preview deployments** for pull requests — auto-enabled by default
+- **Configure GitHub auto-deploy** — auto-enabled when you connect the repo
+
+---
+
 ## Dashboard Sections
 
 | Section | Description |

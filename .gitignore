@@ -60,7 +60,7 @@ server.log
 /upload/
 /tests/
 /mini-services/
-/.zscripts/
+
 /prisma/*.db
 prisma/dev.db
 prisma/prod.db
@@ -70,3 +70,6 @@ worklog.md/db/
 # SQLite database files
 /db/
 *.db
+
+# Runtime PID file (don't commit)
+.zscripts/dev.pid

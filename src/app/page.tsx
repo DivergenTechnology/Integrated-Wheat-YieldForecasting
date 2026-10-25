@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { SectionId, SiteId } from '@/lib/types';
 import { SidebarNav } from '@/components/dashboard/sidebar-nav';
@@ -41,6 +41,27 @@ type FilteredSite = SiteId | 'all';
 export default function Home() {
   const [section, setSection] = useState<SectionId>('overview');
   const [siteId, setSiteId] = useState<FilteredSite>('all');
+  // Track whether the component has mounted on the client. This prevents
+  // hydration mismatches when rendering time-sensitive values (e.g.
+  // `new Date()`) — server-rendered HTML uses a placeholder, client
+  // replaces it after mount.
+  const [mounted, setMounted] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<string>('—');
+
+  // Setting state in useEffect is the official Next.js pattern for
+  // hydration-safe rendering of time-sensitive values (new Date()).
+  // Without this, server-rendered timestamps differ from client
+  // values during hydration → "Hydration failed because the server
+  // rendered text didn't match the client" runtime error.
+  useEffect(() => {
+    setMounted(true);
+    setLastUpdated(new Date().toLocaleString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }));
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -119,12 +140,7 @@ export default function Home() {
               </div>
             </div>
             <div className="text-[10px] text-muted-foreground mt-3">
-              Last updated: {new Date().toLocaleString('en-GB', {
-                day: '2-digit',
-                month: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              Last updated: {mounted ? lastUpdated : '—'}
             </div>
           </div>
         </aside>
